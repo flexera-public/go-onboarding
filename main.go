@@ -5,9 +5,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
+	// Azure
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/billing/armbilling"
+	
+	// GCP
+	"google.golang.org/api/cloudbilling/v1"
 )
 
 func detectCloudShell() string {
@@ -31,8 +36,8 @@ func main() {
 		os.Exit(1)
 	case "GCP Cloud Shell":
 		fmt.Println("Running in GCP Cloud Shell")
-		fmt.Println("Not implemented yet")
-		os.Exit(1)
+		doGoogleOnboarding()
+		os.Exit(0)
 	case "Azure Cloud Shell":
 		fmt.Println("Running in Azure Cloud Shell")
 		doAzureOnboarding()
@@ -46,6 +51,9 @@ func main() {
 
 func doAzureOnboarding() {
 	fmt.Println("Azure Cloud Shell onboarding started")
+
+	// Understanding the time taken for onboarding process
+	startTime := time.Now()
 
 	// Create a credential using DefaultAzureCredential
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
@@ -99,6 +107,51 @@ func doAzureOnboarding() {
 
 	fmt.Printf("Selected billing account: %s\n", *billingAccount.Name)
 
+	// Log total time taken for onboarding process
+	log.Printf("Azure Cloud Shell onboarding completed in %v", time.Since(startTime))
+
 	// Next steps
-	// Attempt to get 1yr cost estimate -- need this for decision on API or Export Based
+	// Attempt to get 1yr cost estimate -- need this for decision on API or Export Based	
+}
+
+func doGoogleOnboarding() {
+	fmt.Println("GCP Cloud Shell onboarding started")
+
+	// Understanding the time taken for onboarding process
+	startTime := time.Now()
+
+	// Set up the Cloud Billing API client using the default credentials
+	ctx := context.Background()
+	log.Println("Creating Cloud Billing API client...")
+	billingService, err := cloudbilling.NewService(ctx)
+	if err != nil {
+		log.Fatalf("Unable to create Cloud Billing service: %v", err)
+		return
+	}
+
+	// Log that the client has been successfully created
+	log.Println("Cloud Billing API client created successfully.")
+
+	// List billing accounts
+	billingAccountsService := cloudbilling.NewBillingAccountsService(billingService)
+	log.Println("Fetching billing accounts...")
+	billingAccountsListCall := billingAccountsService.List()
+	billingAccountsListCall = billingAccountsListCall.PageSize(10) // Adjust page size as needed
+
+	billingAccounts, err := billingAccountsListCall.Do()
+	if err != nil {
+		log.Fatalf("Unable to list billing accounts: %v", err)
+		return
+	}
+
+	// Log the billing accounts found
+	log.Printf("Found %d billing accounts", len(billingAccounts.BillingAccounts))
+
+	// Print out the Billing Account IDs
+	for _, billingAccount := range billingAccounts.BillingAccounts {
+		fmt.Printf("Billing Account ID: %s\n", billingAccount.Name)
+	}
+
+	// Log total time taken for onboarding process
+	log.Printf("GCP Cloud Shell onboarding completed in %v", time.Since(startTime))
 }
